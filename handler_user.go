@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/SudilHasitha/rss_aggregator/internal/database"
+	"github.com/SudilHasitha/rss_aggregator/internal/database/auth"
 	"github.com/google/uuid"
 )
 
@@ -31,5 +32,19 @@ func (apiCfg *apiConfig) createUserrHandler(w http.ResponseWriter, r *http.Reque
 		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create user: %v", err))
 		return
 	}
-	respondWithJSON(w, http.StatusCreated, user)
+	respondWithJSON(w, http.StatusCreated, databaseUserToAPIUser(user))
+}
+
+func (apiCfg *apiConfig) getUserHandler(w http.ResponseWriter, r *http.Request) {
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	user, err := apiCfg.DB.GetUserByAPIKey(r.Context(), apiKey)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get user: %v", err))
+		return
+	}
+	respondWithJSON(w, http.StatusOK, databaseUserToAPIUser(user))
 }
