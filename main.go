@@ -1,15 +1,23 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/SudilHasitha/rss_aggregator/internal/database"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
+
+	_ "github.com/lib/pq" // PostgreSQL driver
 )
+
+type apiConfig struct {
+	DB *database.Queries
+}
 
 func main() {
 	fmt.Println("Hello, World!")
@@ -18,6 +26,25 @@ func main() {
 
 	if portString == "" {
 		log.Fatal("PORT environment variable not set")
+	}
+
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL environment variable not set")
+	}
+
+	conn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal("Failed to connect to the database:", err)
+	}
+
+	queries := database.New(conn)
+	if err != nil {
+		log.Fatal("Failed to create queries:", err)
+	}
+
+	apiConfig := apiConfig{
+		DB: queries,
 	}
 
 	router := chi.NewRouter()
@@ -34,6 +61,7 @@ func main() {
 	v1Router := chi.NewRouter()
 	v1Router.Get("/readiness", readinessHandler)
 	v1Router.Get("/error", handlerErr)
+	v1Router.Post("/users", apiConfig.createUserrHandler)
 
 	router.Mount("/v1", v1Router)
 
@@ -42,7 +70,7 @@ func main() {
 		Handler: router,
 	}
 	fmt.Printf("Starting server on port %s\n", portString)
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
 	}
