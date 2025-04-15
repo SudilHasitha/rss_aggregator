@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/SudilHasitha/rss_aggregator/internal/database"
-	"github.com/SudilHasitha/rss_aggregator/internal/database/auth"
 	"github.com/google/uuid"
 )
 
@@ -35,16 +34,15 @@ func (apiCfg *apiConfig) createUserrHandler(w http.ResponseWriter, r *http.Reque
 	respondWithJSON(w, http.StatusCreated, databaseUserToAPIUser(user))
 }
 
-func (apiCfg *apiConfig) getUserHandler(w http.ResponseWriter, r *http.Request) {
-	apiKey, err := auth.GetAPIKey(r.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-	user, err := apiCfg.DB.GetUserByAPIKey(r.Context(), apiKey)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get user: %v", err))
-		return
-	}
+func (apiCfg *apiConfig) getUserHandler(w http.ResponseWriter, r *http.Request, user database.User) {
 	respondWithJSON(w, http.StatusOK, databaseUserToAPIUser(user))
+}
+
+func (apiCfg *apiConfig) getPostsForUserHandler(w http.ResponseWriter, r *http.Request, user database.User) {
+	posts, err := apiCfg.DB.GetPostsForUser(r.Context(), user.ID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Couldn't get posts for user: %v", err))
+		return
+	}
+	respondWithJSON(w, http.StatusOK, databasePostsToAPIPosts(posts))
 }

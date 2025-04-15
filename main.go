@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/SudilHasitha/rss_aggregator/internal/database"
 	"github.com/go-chi/chi/v5"
@@ -20,7 +21,14 @@ type apiConfig struct {
 }
 
 func main() {
-	fmt.Println("Hello, World!")
+	fmt.Println("Server is starting...")
+
+	// feed, err := urlToFeed("https://lexfridman.com/feed/podcast/")
+	// if err != nil {
+	// 	log.Fatal("Failed to parse feed:", err)
+	// }
+	// fmt.Println("Feed", feed.Channel.Items)
+
 	godotenv.Load()
 	portString := os.Getenv("PORT")
 
@@ -47,6 +55,9 @@ func main() {
 		DB: queries,
 	}
 
+	// Start scraping in a separate goroutine
+	go startScraping(queries, 15, 120*time.Second)
+
 	router := chi.NewRouter()
 
 	router.Use(cors.Handler(cors.Options{
@@ -62,7 +73,13 @@ func main() {
 	v1Router.Get("/readiness", readinessHandler)
 	v1Router.Get("/error", handlerErr)
 	v1Router.Post("/users", apiConfig.createUserrHandler)
-	v1Router.Get("/users", apiConfig.getUserHandler)
+	v1Router.Get("/users", apiConfig.authMiddleware(apiConfig.getUserHandler))
+	v1Router.Post("/feeds", apiConfig.authMiddleware(apiConfig.createFeedHandler))
+	v1Router.Get("/feeds", apiConfig.getFeedHandler)
+	v1Router.Post("/feed_follows", apiConfig.authMiddleware(apiConfig.createFeedFollowHandler))
+	v1Router.Get("/feed_follows", apiConfig.authMiddleware(apiConfig.getFeedFollowsHandler))
+	v1Router.Delete("/feed_follows/{feedFollowID}", apiConfig.authMiddleware(apiConfig.deleteFeedFollowHandler))
+	v1Router.Get("/posts", apiConfig.authMiddleware(apiConfig.getPostsForUserHandler))
 
 	router.Mount("/v1", v1Router)
 
